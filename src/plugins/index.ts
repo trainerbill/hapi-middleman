@@ -53,7 +53,7 @@ export default (server: Server) => {
                     id: "paypal_webhooks_listen",
                 },
                 handler: (request: any, reply: any, response: any) => {
-                    reply("GOT IT!");
+                    server.log("Got IT!");
                 },
             },
         ],
