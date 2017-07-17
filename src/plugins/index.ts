@@ -37,7 +37,7 @@ export default (server: Server) => {
     };
     plugins.push(modelPlugin);
 
-    const hapiPayPalOptions = {
+    const hapiPayPalOptions: IHapiPayPalOptions = {
         routes: [
             {
                 config: {
@@ -66,6 +66,9 @@ export default (server: Server) => {
             event_types: [
                 {
                     name: "INVOICING.INVOICE.PAID",
+                },
+                {
+                    name: "INVOICING.INVOICE.CANCELLED",
                 },
             ],
             url: process.env.PAYPAL_WEBHOOK_HOSTNAME,
