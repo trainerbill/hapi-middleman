@@ -44,7 +44,7 @@ export default (server: Server) => {
                 config: {
                     id: "paypal_payment_create",
                 },
-                handler: (request: hapi.Request, reply: hapi.ReplyNoContinue, response: any) => {
+                handler: (request, reply, error, response) => {
                     server.log(response);
                     reply(response);
                 },
@@ -53,8 +53,8 @@ export default (server: Server) => {
                 config: {
                     id: "paypal_webhooks_listen",
                 },
-                handler: (request: hapi.Request, reply: hapi.ReplyNoContinue, response: any) => {
-                    server.log("Got IT!");
+                handler: (request, reply, error, response) => {
+                    server.log(request.payload);
                 },
             },
         ],
