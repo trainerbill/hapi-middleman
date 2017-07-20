@@ -54,7 +54,7 @@ export default (server: Server) => {
                     id: "paypal_webhooks_listen",
                 },
                 handler: (request, reply, error, response) => {
-                    server.log(request.payload);
+                    server.log(JSON.stringify(request.payload));
                 },
             },
         ],
