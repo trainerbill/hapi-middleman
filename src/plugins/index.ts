@@ -1,5 +1,6 @@
 import * as Good from "good";
 import { PluginRegistrationObject, Server } from "hapi";
+import * as hapi from "hapi";
 import * as Models from "hapi-mongo-models";
 import { HapiPayPal, IHapiPayPalOptions } from "hapi-paypal";
 import * as wozu from "wozu";
@@ -43,7 +44,7 @@ export default (server: Server) => {
                 config: {
                     id: "paypal_payment_create",
                 },
-                handler: (request: any, reply: any, response: any) => {
+                handler: (request: hapi.Request, reply: hapi.ReplyNoContinue, response: any) => {
                     server.log(response);
                     reply(response);
                 },
@@ -52,7 +53,7 @@ export default (server: Server) => {
                 config: {
                     id: "paypal_webhooks_listen",
                 },
-                handler: (request: any, reply: any, response: any) => {
+                handler: (request: hapi.Request, reply: hapi.ReplyNoContinue, response: any) => {
                     server.log("Got IT!");
                 },
             },
@@ -62,7 +63,7 @@ export default (server: Server) => {
             client_secret: process.env.PAYPAL_CLIENT_SECRET,
             mode: "sandbox",
         },
-        webhooks: {
+        webhook: {
             event_types: [
                 {
                     name: "INVOICING.INVOICE.PAID",
