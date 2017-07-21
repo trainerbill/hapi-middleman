@@ -9,6 +9,11 @@ interface IWozuServer extends Hapi.Server {
 async function start() {
     server.log("info", "TESTY");
     await server.register(initPlugins(server));
+    server.route({
+        handler: (request, reply) => reply("ok"),
+        method: "get",
+        path: "/test",
+    });
     server.start((err) => {
         const temp: IWozuServer = server as any;
         if (err) {
