@@ -9,30 +9,35 @@ interface IWozuServer extends Hapi.Server {
 
 async function startDatabase() {
     try {
+        (mongoose as any).Promise = Promise;
         mongoose.set("debug", process.env.MONGOOSE_DEBUG ? true : false);
-        await mongoose.connect(process.env.MONGOOSE_URI);
-        server.log("info", `Mongoose Connected | ${process.env.MONGOOSE_URI}`);
+        await mongoose.connect(process.env.MONGOOSE_URI, { useMongoClient: true });
+        server.log(`Mongoose Connected | ${process.env.MONGOOSE_URI}`);
     } catch (err) {
         throw err;
     }
 }
 
 async function start() {
-    await startDatabase();
-    await server.register(initPlugins(server));
-    server.route({
-        handler: (request, reply) => reply("ok"),
-        method: "get",
-        path: "/test",
-    });
-    server.start((err) => {
-        const temp: IWozuServer = server as any;
-        if (err) {
-            throw err;
-        }
-        server.log("info", `Server running at: ${server.info.uri}`);
-        server.log("info", JSON.stringify(temp.wozu(), null, 2));
-    });
+    try {
+        await startDatabase();
+        await server.register(initPlugins(server));
+        server.route({
+            handler: (request, reply) => reply("ok"),
+            method: "get",
+            path: "/test",
+        });
+        server.start((err) => {
+            const temp: IWozuServer = server as any;
+            if (err) {
+                throw err;
+            }
+            server.log("info", `Server running at: ${server.info.uri}`);
+            server.log("info", JSON.stringify(temp.wozu(), null, 2));
+        });
+    } catch (err) {
+        throw err;
+    }
 }
 
 dotenv.config();
