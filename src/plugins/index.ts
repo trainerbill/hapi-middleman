@@ -45,7 +45,9 @@ export default (server: Server) => {
                 handler: (request, reply, error, response) => {
                     server.log(JSON.stringify(request.payload));
                     const webhook = new paypalModels.PaypalWebhook(request.payload);
-                    webhook.save();
+                    webhook.save().then((test) => {
+                        server.log("info", "webhook saved!!!!");
+                    }) ;
                 },
             },
         ],
