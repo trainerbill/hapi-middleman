@@ -1,7 +1,7 @@
 import * as Good from "good";
 import { PluginRegistrationObject, Server } from "hapi";
 import * as hapi from "hapi";
-import * as Models from "hapi-mongo-models";
+import * as Mongoose from "hapi-mongoose";
 import { HapiPayPal, IHapiPayPalOptions } from "hapi-paypal";
 import * as wozu from "wozu";
 
@@ -28,17 +28,17 @@ export default (server: Server) => {
 
     const modelPlugin = {
         options: {
-            autoIndex: false,
-            mongodb: {
-                options: { },
-                uri: process.env.MONGOOSE_URI,
-            },
+            bluebird: false,
+            uri: process.env.MONGOOSE_URI,
         },
-        register: Models,
+        register: Mongoose,
     };
     plugins.push(modelPlugin);
 
     const hapiPayPalOptions: IHapiPayPalOptions = {
+        models: [
+            "PaypalWebhook",
+        ],
         routes: [
             {
                 config: {

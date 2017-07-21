@@ -3,7 +3,7 @@ declare module "good" {
     export = good;
 }
 
-declare module "hapi-mongo-models" {
+declare module "hapi-mongoose" {
     let models: any;
     export = models;
 }
