@@ -11,8 +11,7 @@
     "sourceMap": true
   },
   "include": [
-    "src/**/*",
-    "./node_modules/hapi-paypal/src/paypal-rest-sdk.d.ts"
+    "src/**/*"
   ],
   "exclude": [
     "**/*-spec.ts"

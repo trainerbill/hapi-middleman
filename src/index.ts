@@ -1,13 +1,24 @@
 import * as dotenv from "dotenv";
 import * as Hapi from "hapi";
+import * as mongoose from "mongoose";
 import initPlugins from "./plugins";
 
 interface IWozuServer extends Hapi.Server {
     wozu(): [{}];
 }
 
+async function startDatabase() {
+    try {
+        mongoose.set("debug", process.env.MONGOOSE_DEBUG ? true : false);
+        await mongoose.connect(process.env.MONGOOSE_URI);
+        server.log("info", `Mongoose Connected | ${process.env.MONGOOSE_URI}`);
+    } catch (err) {
+        throw err;
+    }
+}
+
 async function start() {
-    server.log("info", "TESTY");
+    await startDatabase();
     await server.register(initPlugins(server));
     server.route({
         handler: (request, reply) => reply("ok"),
