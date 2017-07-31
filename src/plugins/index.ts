@@ -4,10 +4,17 @@ import * as hapi from "hapi";
 import * as paypal from "hapi-paypal";
 import * as paypalModels from "hapi-paypal/lib/models";
 // import * as mongoose from "mongoose";
+import * as therealyou from "therealyou";
 import * as wozu from "wozu";
 
 export default (server: Server) => {
     const plugins = [];
+
+    const registerTRY: PluginRegistrationObject<any> = {
+        register: therealyou,
+    };
+    plugins.push(registerTRY);
+
     const registerGood: PluginRegistrationObject<any> = {
         options: {
             reporters: {
