@@ -3,7 +3,7 @@ import { PluginRegistrationObject, Server } from "hapi";
 import * as hapi from "hapi";
 import * as paypal from "hapi-paypal";
 import * as paypalModels from "hapi-paypal/lib/models";
-import * as mongoose from "mongoose";
+// import * as mongoose from "mongoose";
 import * as wozu from "wozu";
 
 export default (server: Server) => {
@@ -44,10 +44,11 @@ export default (server: Server) => {
                 },
                 handler: (request, reply, error, response) => {
                     server.log(JSON.stringify(request.payload));
-                    const webhook = new paypalModels.PaypalWebhook(request.payload);
-                    webhook.save().then((test) => {
+                    // const webhook = new paypalModels.PaypalWebhook(request.payload);
+                    /* webhook.save().then((test) => {
                         server.log("info", "webhook saved!!!!");
                     }) ;
+                    */
                 },
             },
         ],
