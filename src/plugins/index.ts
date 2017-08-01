@@ -1,11 +1,11 @@
 import * as Good from "good";
 import { PluginRegistrationObject, Server } from "hapi";
 import * as hapi from "hapi";
+import * as hapiCron from "hapi-cron";
 import * as paypal from "hapi-paypal";
-import * as paypalModels from "hapi-paypal/lib/models";
-// import * as mongoose from "mongoose";
 import * as therealyou from "therealyou";
 import * as wozu from "wozu";
+import { HapiPayPalIntacct } from "./paypal-intacct";
 
 export default (server: Server) => {
     const plugins = [];
@@ -36,6 +36,14 @@ export default (server: Server) => {
 
     const hapiPayPalOptions: paypal.IHapiPayPalOptions = {
         routes: [
+            {
+                config: {
+                    id: "paypal_invoice_search",
+                },
+                handler: (request, reply, error, response) => {
+                    reply(error || response);
+                },
+            },
             {
                 config: {
                     id: "paypal_payment_create",
@@ -84,6 +92,17 @@ export default (server: Server) => {
     plugins.push(hapiPaypal);
 
     plugins.push(wozu);
+    plugins.push({
+        register: hapiCron,
+    });
+
+    const hapiPaypalIntacct = {
+        options: {
+            invoicing: true,
+        },
+        register: new HapiPayPalIntacct(),
+    };
+    plugins.push(hapiPaypalIntacct);
 
     return plugins;
 };
