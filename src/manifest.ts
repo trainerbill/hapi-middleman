@@ -107,6 +107,11 @@ export const manifest = {
                                 id: "intacct_invoice_query",
                             },
                         },
+                        {
+                            config: {
+                                id: "intacct_invoice_update",
+                            },
+                        },
                     ],
                     sdk: {
                         auth: {
@@ -132,12 +137,8 @@ export const manifest = {
                 options: {
                     jobs: [
                         {
-                            latertext: "every 12 hours",
-                            name: "savePayPalInvoices",
-                        },
-                        {
                             latertext: "every hour",
-                            name: "saveIntacctInvoices",
+                            name: "syncInvoices",
                         },
                     ],
                 },

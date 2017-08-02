@@ -16,6 +16,8 @@ export declare class HapiPayPalIntacct {
     private initJobs(jobs);
     private savePayPalInvoices();
     private savePayPalInvoice(invoice);
-    private saveIntacctInvoices();
+    private syncInvoices();
     private saveIntacctInvoice(invoice);
+    private toPaypalInvoice(intacctInvoice);
+    private toPayPalLineItems(arrInvoiceItems);
 }
