@@ -1,10 +1,6 @@
 import * as hapi from "hapi";
-import * as intacctModels from "hapi-intacct/lib/models/mongoose";
-import * as paypalModels from "hapi-paypal/lib/models/mongoose";
 import * as later from "later";
-import * as mongoose from "mongoose";
-import * as paypal from "paypal-rest-sdk";
-import { invoice as ppInvoice } from "paypal-rest-sdk";
+import { invoice as ppInvoice, notification as ppWebhook } from "paypal-rest-sdk";
 
 export interface IJob {
     name: string;
@@ -18,17 +14,12 @@ export interface IHapiPayPalIntacctOptions {
 export class HapiPayPalIntacct {
     private jobs: Map<string, any> = new Map();
     private server: hapi.Server;
-    private paypalInvoice: mongoose.Model<any>;
-    private intacctInvoice: mongoose.Model<any>;
 
     constructor() {
         this.register.attributes = {
             dependencies: ["hapi-paypal", "hapi-intacct"],
             name: "hapi-paypal-intacct",
         };
-
-        this.paypalInvoice = paypalModels.PaypalInvoice;
-        this.intacctInvoice = intacctModels.IntacctInvoice;
     }
 
     // tslint:disable-next-line:max-line-length
@@ -37,17 +28,38 @@ export class HapiPayPalIntacct {
         return Promise.all([ this.initJobs(options.jobs) ]).then(() => next);
     }
 
+    public async webhookHandler(webhook: ppWebhook.webhookEvent.WebhookEvent) {
+        // TODO: ARPAMENT ETC
+        const invoice: any = {};
+        switch (webhook.event_type) {
+            case "INVOICING.INVOICE.PAID":
+                invoice.PAYPALINVOICESTATUS = webhook.resource.status;
+                break;
+
+            default:
+        }
+
+        // Update Invoice
+        try {
+            const update = await this.server.inject({
+                method: "PUT",
+                payload: invoice,
+                url: `/intacct/invoice/${webhook.resource.number}`,
+            });
+            if (update.statusCode !== 200) {
+                throw new Error((update.result as any).message);
+            }
+        } catch (err) {
+            // tslint:disable-next-line:max-line-length
+            this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdateIntacct::${invoice.RECORDNO}::${err.message}`);
+        }
+    }
+
     private async initJobs(jobs: IJob[]) {
         this.server.log("info", `hapi-paypal-intacct::initJobs::${jobs.length} jobs.`);
         let timer;
         for ( const job of jobs) {
             switch (job.name) {
-                case "savePayPalInvoices":
-                    await this.savePayPalInvoices();
-                    timer = later.parse.text(job.latertext);
-                    later.setInterval(this.savePayPalInvoices, timer);
-                    break;
-
                 case "syncInvoices":
                     await this.syncInvoices();
                     timer = later.parse.text(job.latertext);
@@ -61,44 +73,9 @@ export class HapiPayPalIntacct {
         }
     }
 
-    private async savePayPalInvoices() {
-        this.server.log("info", `hapi-paypal-intacct::savePayPalInvoices::start`);
-        const date = new Date();
-        const endIso = date.toISOString();
-        const endPaypal = endIso.substr(0, endIso.indexOf("T"));
-
-        date.setDate(date.getDate() - 40);
-
-        const startIso = date.toISOString();
-        const startPaypal = startIso.substr(0, startIso.indexOf("T"));
-
-        const search = {
-            end_creation_date: `${endPaypal} PST`,
-            start_creation_date: `${startPaypal} PST`,
-        };
-        const res = await this.server.inject({
-            method: "POST",
-            payload: search,
-            url: "/paypal/invoice/search",
-        });
-
-        const ppResult = (res.result as ppInvoice.ListResponse).invoices;
-
-        if (ppResult.length > 0) {
-            for (const invoice of ppResult) {
-                await this.savePayPalInvoice(invoice);
-            }
-        }
-        this.server.log("info", `hapi-paypal-intacct::savePayPalInvoices::end`);
-    }
-
-    private async savePayPalInvoice(invoice: ppInvoice.Invoice) {
-        return await this.paypalInvoice.findOneAndUpdate({ id: invoice.id }, invoice, { upsert: true, new: true });
-    }
-
     private async syncInvoices() {
         // tslint:disable-next-line:max-line-length
-        const query = process.env.INTACCT_INVOICE_QUERY || `RAWSTATE = 'A' AND WHENCREATED > "8/1/2017"`;
+        const query = process.env.INTACCT_INVOICE_QUERY || `RAWSTATE = 'A' AND ( PAYPALINVOICESTATUS IN ('','DRAFT') OR PAYPALINVOICEID = '' ) AND WHENCREATED > '8/1/2017'`;
 
         const res = await this.server.inject({
             method: "GET",
@@ -107,10 +84,10 @@ export class HapiPayPalIntacct {
         const invoices: any[] = res.result as any[];
         if (invoices.length > 0) {
             for (const invoice of invoices) {
+                let paypalInvoice: ppInvoice.Invoice;
                 try {
                     if (!invoice.PAYPALINVOICEID) {
-                        // Try and find invoice at PayPal in case an update to intacct failed
-                        let paypalInvoice: paypal.invoice.Invoice;
+                        // Try and find an invoice based on RECORDNO.  Its possible the update to intacct failed.
                         const find = await this.server.inject({
                             method: "POST",
                             payload: {
@@ -119,8 +96,9 @@ export class HapiPayPalIntacct {
                             url: "/paypal/invoice/search",
                         });
 
-                        if ((find.result as paypal.invoice.ListResponse).invoices.length !== 0) {
-                            paypalInvoice = (find.result as paypal.invoice.ListResponse).invoices[0];
+                        if ((find.result as ppInvoice.ListResponse).invoices.length !== 0) {
+                            paypalInvoice = (find.result as ppInvoice.ListResponse).invoices[0];
+                            invoice.PAYPALINVOICEID = paypalInvoice.id;
                         } else {
                             // Create a PayPal Invoice
                             const create = await this.server.inject({
@@ -131,38 +109,47 @@ export class HapiPayPalIntacct {
                             if (create.statusCode !== 200) {
                                 throw new Error((create.result as any).message);
                             }
-                            paypalInvoice = (create.result as paypal.invoice.InvoiceResponse);
+                            paypalInvoice = (create.result as ppInvoice.InvoiceResponse);
+                            invoice.PAYPALINVOICEID = paypalInvoice.id;
                         }
-
-                        invoice.PAYPALINVOICEID = paypalInvoice.id;
-                        // Its possible the invoice was sent but update to intacct failed.
-                        if (paypalInvoice.status !== "DRAFT") {
-                            invoice.PAYPALINVOICEMESSAGE = "Invoice Sent Successfully";
+                    } else {
+                        const get = await this.server.inject({
+                            method: "GET",
+                            payload: this.toPaypalInvoice(invoice),
+                            url: `/paypal/invoice/${invoice.PAYPALINVOICEID}`,
+                        });
+                        if (get.statusCode !== 200) {
+                            throw new Error((get.result as any).message);
                         }
+                        paypalInvoice = (get.result as ppInvoice.InvoiceResponse);
                     }
 
-                    if (invoice.PAYPALINVOICEMESSAGE !== "Invoice Sent Successfully") {
+                    if (paypalInvoice.status === "DRAFT") {
                         const send = await this.server.inject({
                             method: "POST",
-                            url: `/paypal/invoice/${invoice.id}/send`,
+                            url: `/paypal/invoice/${invoice.PAYPALINVOICEID}/send`,
                         });
                         if (send.statusCode !== 200) {
                             throw new Error((send.result as any).message);
                         }
-                        invoice.PAYPALINVOICEMESSAGE = "Invoice Sent Successfully";
+                        invoice.PAYPALINVOICESTATUS = "SENT";
+                    } else {
+                        invoice.PAYPALINVOICESTATUS = paypalInvoice.status;
                     }
                 } catch (err) {
                     // tslint:disable-next-line:max-line-length
                     this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdatePayPal::${invoice.RECORDNO}::${err.message}`);
-                    invoice.PAYPALINVOICEMESSAGE = JSON.stringify(err.message);
+                    invoice.PAYPALERROR = JSON.stringify(err.message);
                 }
 
                 try {
                     const update = await this.server.inject({
                         method: "PUT",
                         payload: {
+                            PAYPALERROR: invoice.PAYPALERROR,
                             PAYPALINVOICEID: invoice.PAYPALINVOICEID,
-                            PAYPAYPALINVOICEMESSAGE: invoice.PAYPALINVOICEMESSAGE,
+                            PAYPALINVOICESTATUS: invoice.PAYPALINVOICESTATUS,
+                            PAYPALINVOICEURL: (paypalInvoice.metadata as any).payer_view_url,
                         },
                         url: `/intacct/invoice/${invoice.RECORDNO}`,
                     });
@@ -179,16 +166,10 @@ export class HapiPayPalIntacct {
         this.server.log("info", `hapi-paypal-intacct::saveIntacctInvoices::end`);
     }
 
-    private async saveIntacctInvoice(invoice: any) {
-        return await this
-                        .intacctInvoice
-                        .findOneAndUpdate({ RECORDNO: invoice.RECORDNO }, invoice, { upsert: true, new: true });
-    }
-
     private async toPaypalInvoice(intacctInvoice: any) {
         // const arrPPInvItems = await this.toPayPalLineItems(intacctInvoice.ARINVOICEITEMS.arinvoiceitem);
 
-        const paypalInvoice: paypal.invoice.Invoice = {
+        const paypalInvoice: ppInvoice.Invoice = {
             billing_info: {
                 email: intacctInvoice["BILLTO.EMAIL1"],
             },
@@ -241,11 +222,11 @@ export class HapiPayPalIntacct {
 
     private async toPayPalLineItems(arrInvoiceItems: any) {
 
-        const arrPPInvItems: paypal.invoice.InvoiceItem[] = [];
+        const arrPPInvItems: ppInvoice.InvoiceItem[] = [];
 
         if (arrInvoiceItems.length > 0) {
             for (const item of arrInvoiceItems) {
-                const ritem: paypal.invoice.InvoiceItem = {
+                const ritem: ppInvoice.InvoiceItem = {
                     name: item.ITEMNAME ? "Item1" : item.ITEMNAME,
                     quantity: 1,
                     unit_price: {

@@ -9,6 +9,8 @@ import * as therealyou from "therealyou";
 import * as wozu from "wozu";
 import { HapiPayPalIntacct, IHapiPayPalIntacctOptions } from "./plugins/paypal-intacct";
 
+const hapiPayPalIntacct = new HapiPayPalIntacct();
+
 const hapiPayPalOptions: IHapiPayPalOptions = {
     routes: [
         {
@@ -28,11 +30,15 @@ const hapiPayPalOptions: IHapiPayPalOptions = {
         },
         {
             config: {
+                id: "paypal_invoice_get",
+            },
+        },
+        {
+            config: {
                 id: "paypal_webhooks_listen",
             },
             handler: (request, reply, error, response) => {
-                const webhook = new PaypalWebhook(request.payload);
-                webhook.save();
+                hapiPayPalIntacct.webhookHandler(request.payload);
             },
         },
     ],
@@ -54,7 +60,7 @@ const hapiPayPalOptions: IHapiPayPalOptions = {
     },
 };
 
-export const manifest = {
+export const manifest: any = {
     connections: [
         {
             host: process.env.IP || "0.0.0.0",
@@ -142,7 +148,7 @@ export const manifest = {
                         },
                     ],
                 },
-                register: new HapiPayPalIntacct().register,
+                register: hapiPayPalIntacct.register,
             },
         },
     ],
