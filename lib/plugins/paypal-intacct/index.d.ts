@@ -15,6 +15,7 @@ export declare class HapiPayPalIntacct {
     webhookHandler(webhook: ppWebhook.webhookEvent.WebhookEvent): Promise<void>;
     private initJobs(jobs);
     private syncInvoices();
+    private getPayPalInvoice(id);
     private toPaypalInvoice(intacctInvoice);
     private toPayPalLineItems(arrInvoiceItems);
 }

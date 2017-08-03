@@ -113,15 +113,7 @@ export class HapiPayPalIntacct {
                             invoice.PAYPALINVOICEID = paypalInvoice.id;
                         }
                     } else {
-                        const get = await this.server.inject({
-                            method: "GET",
-                            payload: this.toPaypalInvoice(invoice),
-                            url: `/paypal/invoice/${invoice.PAYPALINVOICEID}`,
-                        });
-                        if (get.statusCode !== 200) {
-                            throw new Error((get.result as any).message);
-                        }
-                        paypalInvoice = (get.result as ppInvoice.InvoiceResponse);
+                        paypalInvoice = await this.getPayPalInvoice(invoice.PAYPALINVOICEID);
                     }
 
                     if (paypalInvoice.status === "DRAFT") {
@@ -132,10 +124,11 @@ export class HapiPayPalIntacct {
                         if (send.statusCode !== 200) {
                             throw new Error((send.result as any).message);
                         }
-                        invoice.PAYPALINVOICESTATUS = "SENT";
-                    } else {
-                        invoice.PAYPALINVOICESTATUS = paypalInvoice.status;
+
+                        // Need to reget the invoice for the Payment URL
+                        paypalInvoice = await this.getPayPalInvoice(invoice.PAYPALINVOICEID);
                     }
+
                 } catch (err) {
                     // tslint:disable-next-line:max-line-length
                     this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdatePayPal::${invoice.RECORDNO}::${err.message}`);
@@ -148,7 +141,7 @@ export class HapiPayPalIntacct {
                         payload: {
                             PAYPALERROR: invoice.PAYPALERROR,
                             PAYPALINVOICEID: invoice.PAYPALINVOICEID,
-                            PAYPALINVOICESTATUS: invoice.PAYPALINVOICESTATUS,
+                            PAYPALINVOICESTATUS: paypalInvoice.status,
                             PAYPALINVOICEURL: (paypalInvoice.metadata as any).payer_view_url,
                         },
                         url: `/intacct/invoice/${invoice.RECORDNO}`,
@@ -164,6 +157,17 @@ export class HapiPayPalIntacct {
         }
 
         this.server.log("info", `hapi-paypal-intacct::saveIntacctInvoices::end`);
+    }
+
+    private async getPayPalInvoice(id: string) {
+        const get = await this.server.inject({
+            method: "GET",
+            url: `/paypal/invoice/${id}`,
+        });
+        if (get.statusCode !== 200) {
+            throw new Error((get.result as any).message);
+        }
+        return (get.result as ppInvoice.InvoiceResponse);
     }
 
     private async toPaypalInvoice(intacctInvoice: any) {
