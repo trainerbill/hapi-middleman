@@ -170,14 +170,12 @@ export class HapiPayPalIntacct {
         return (get.result as ppInvoice.InvoiceResponse);
     }
 
-    private async toPaypalInvoice(intacctInvoice: any) {
-        // const arrPPInvItems = await this.toPayPalLineItems(intacctInvoice.ARINVOICEITEMS.arinvoiceitem);
-
+    private toPaypalInvoice(intacctInvoice: any) {
         const paypalInvoice: ppInvoice.Invoice = {
             billing_info: {
                 email: intacctInvoice["BILLTO.EMAIL1"],
             },
-            // items: arrPPInvItems,
+            items: this.toPayPalLineItems(intacctInvoice.ARINVOICEITEMS.arinvoiceitem),
             merchant_info: {
                 address: {
                     city: process.env.PAYPAL_MERCHANT_ADDRESS_CITY,
@@ -217,14 +215,14 @@ export class HapiPayPalIntacct {
             tax_inclusive: true,
             total_amount: {
                 currency: intacctInvoice.CURRENCY,
-                value: intacctInvoice.TRX_TOTALENTERED,
+                value: intacctInvoice.TRX_TOTALDUE,
             },
         };
 
         return paypalInvoice;
     }
 
-    private async toPayPalLineItems(arrInvoiceItems: any) {
+    private toPayPalLineItems(arrInvoiceItems: any) {
 
         const arrPPInvItems: ppInvoice.InvoiceItem[] = [];
 
