@@ -1,4 +1,5 @@
 import * as hapi from "hapi";
+import { notification as ppWebhook } from "paypal-rest-sdk";
 export interface IJob {
     name: string;
     latertext: string;
@@ -9,15 +10,11 @@ export interface IHapiPayPalIntacctOptions {
 export declare class HapiPayPalIntacct {
     private jobs;
     private server;
-    private paypalInvoice;
-    private intacctInvoice;
     constructor();
     register: hapi.PluginFunction<any>;
+    webhookHandler(webhook: ppWebhook.webhookEvent.WebhookEvent): Promise<void>;
     private initJobs(jobs);
-    private savePayPalInvoices();
-    private savePayPalInvoice(invoice);
     private syncInvoices();
-    private saveIntacctInvoice(invoice);
     private toPaypalInvoice(intacctInvoice);
     private toPayPalLineItems(arrInvoiceItems);
 }
