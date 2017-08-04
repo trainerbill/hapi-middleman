@@ -115,6 +115,11 @@ export const manifest: any = {
                         },
                         {
                             config: {
+                                id: "intacct_invoice_read",
+                            },
+                        },
+                        {
+                            config: {
                                 id: "intacct_invoice_update",
                             },
                         },

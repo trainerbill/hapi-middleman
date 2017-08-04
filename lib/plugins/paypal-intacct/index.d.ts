@@ -10,12 +10,14 @@ export interface IHapiPayPalIntacctOptions {
 export declare class HapiPayPalIntacct {
     private jobs;
     private server;
+    private paypalInvoiceSchema;
     constructor();
     register: hapi.PluginFunction<any>;
     webhookHandler(webhook: ppWebhook.webhookEvent.WebhookEvent): Promise<void>;
     private initJobs(jobs);
     private syncInvoices();
     private getPayPalInvoice(id);
+    private getIntacctInvoice(id);
     private toPaypalInvoice(intacctInvoice);
     private toPayPalLineItems(arrInvoiceItems);
 }

@@ -1,4 +1,7 @@
 import * as hapi from "hapi";
+import * as paypalSchemas from "hapi-paypal/lib/joi";
+import * as hoek from "hoek";
+import * as joi from "joi";
 import * as later from "later";
 import { invoice as ppInvoice, notification as ppWebhook } from "paypal-rest-sdk";
 
@@ -14,6 +17,7 @@ export interface IHapiPayPalIntacctOptions {
 export class HapiPayPalIntacct {
     private jobs: Map<string, any> = new Map();
     private server: hapi.Server;
+    private paypalInvoiceSchema: joi.ObjectSchema;
 
     constructor() {
         this.register.attributes = {
@@ -79,41 +83,42 @@ export class HapiPayPalIntacct {
 
         const res = await this.server.inject({
             method: "GET",
-            url: `/intacct/invoice?query=${encodeURIComponent(query)}`,
+            url: `/intacct/invoice?query=${encodeURIComponent(query)}&fields=RECORDNO`,
         });
         const invoices: any[] = res.result as any[];
         if (invoices.length > 0) {
             for (const invoice of invoices) {
                 let paypalInvoice: ppInvoice.Invoice;
+                const intacctInvoice = await this.getIntacctInvoice(invoice.RECORDNO);
                 try {
-                    if (!invoice.PAYPALINVOICEID) {
+                    if (!intacctInvoice.PAYPALINVOICEID) {
                         // Try and find an invoice based on RECORDNO.  Its possible the update to intacct failed.
                         const find = await this.server.inject({
                             method: "POST",
                             payload: {
-                                number: invoice.RECORDNO,
+                                number: intacctInvoice.RECORDNO,
                             },
                             url: "/paypal/invoice/search",
                         });
 
                         if ((find.result as ppInvoice.ListResponse).invoices.length !== 0) {
                             paypalInvoice = (find.result as ppInvoice.ListResponse).invoices[0];
-                            invoice.PAYPALINVOICEID = paypalInvoice.id;
+                            intacctInvoice.PAYPALINVOICEID = paypalInvoice.id;
                         } else {
                             // Create a PayPal Invoice
                             const create = await this.server.inject({
                                 method: "POST",
-                                payload: this.toPaypalInvoice(invoice),
+                                payload: this.toPaypalInvoice(intacctInvoice),
                                 url: "/paypal/invoice",
                             });
                             if (create.statusCode !== 200) {
                                 throw new Error((create.result as any).message);
                             }
                             paypalInvoice = (create.result as ppInvoice.InvoiceResponse);
-                            invoice.PAYPALINVOICEID = paypalInvoice.id;
+                            intacctInvoice.PAYPALINVOICEID = paypalInvoice.id;
                         }
                     } else {
-                        paypalInvoice = await this.getPayPalInvoice(invoice.PAYPALINVOICEID);
+                        paypalInvoice = await this.getPayPalInvoice(intacctInvoice.PAYPALINVOICEID);
                     }
 
                     if (paypalInvoice.status === "DRAFT") {
@@ -131,27 +136,27 @@ export class HapiPayPalIntacct {
 
                 } catch (err) {
                     // tslint:disable-next-line:max-line-length
-                    this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdatePayPal::${invoice.RECORDNO}::${err.message}`);
-                    invoice.PAYPALERROR = JSON.stringify(err.message);
+                    this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdatePayPal::${intacctInvoice.RECORDNO}::${err.message}`);
+                    intacctInvoice.PAYPALERROR = JSON.stringify(err.message);
                 }
 
                 try {
                     const update = await this.server.inject({
                         method: "PUT",
                         payload: {
-                            PAYPALERROR: invoice.PAYPALERROR,
-                            PAYPALINVOICEID: invoice.PAYPALINVOICEID,
+                            PAYPALERROR: intacctInvoice.PAYPALERROR,
+                            PAYPALINVOICEID: intacctInvoice.PAYPALINVOICEID,
                             PAYPALINVOICESTATUS: paypalInvoice.status,
                             PAYPALINVOICEURL: (paypalInvoice.metadata as any).payer_view_url,
                         },
-                        url: `/intacct/invoice/${invoice.RECORDNO}`,
+                        url: `/intacct/invoice/${intacctInvoice.RECORDNO}`,
                     });
                     if (update.statusCode !== 200) {
                         throw new Error((update.result as any).message);
                     }
                 } catch (err) {
                     // tslint:disable-next-line:max-line-length
-                    this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdateIntacct::${invoice.RECORDNO}::${err.message}`);
+                    this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdateIntacct::${intacctInvoice.RECORDNO}::${err.message}`);
                 }
             }
         }
@@ -170,11 +175,38 @@ export class HapiPayPalIntacct {
         return (get.result as ppInvoice.InvoiceResponse);
     }
 
+    private async getIntacctInvoice(id: string) {
+        const get = await this.server.inject({
+            method: "GET",
+            url: `/intacct/invoice/${id}`,
+        });
+        if (get.statusCode !== 200) {
+            throw new Error((get.result as any).message);
+        }
+        return (get.result as any);
+    }
+
     private toPaypalInvoice(intacctInvoice: any) {
-        const paypalInvoice: ppInvoice.Invoice = {
-            billing_info: {
-                email: intacctInvoice["BILLTO.EMAIL1"],
-            },
+        // TODO: change to ppInvoice.Invoice when billing_info is fixed
+        const paypalInvoice: any = {
+            billing_info: [{
+                address: {
+                    city: intacctInvoice.BILLTO.MAILADDRESS.CITY,
+                    country_code: intacctInvoice.BILLTO.MAILADDRESS.COUNTRYCODE,
+                    line1: intacctInvoice.BILLTO.MAILADDRESS.ADDRESS1,
+                    line2: intacctInvoice.BILLTO.MAILADDRESS.ADDRESS2,
+                    postal_code: intacctInvoice.BILLTO.MAILADDRESS.ZIP,
+                    state: intacctInvoice.BILLTO.MAILADDRESS.STATE,
+                },
+                business_name: intacctInvoice.BILLTO.COMPANYNAME,
+                email: intacctInvoice.BILLTO.EMAIL1,
+                first_name: intacctInvoice.BILLTO.FIRSTNAME,
+                last_name: intacctInvoice.BILLTO.LASTNAME,
+                phone: {
+                    country_code: "1",
+                    national_number: intacctInvoice.BILLTO.PHONE1,
+                },
+            }],
             items: this.toPayPalLineItems(intacctInvoice.ARINVOICEITEMS.arinvoiceitem),
             merchant_info: {
                 address: {
@@ -193,33 +225,33 @@ export class HapiPayPalIntacct {
                     national_number: process.env.PAYPAL_MERCHANT_PHONE_NUMBER,
                 },
             },
-            note: intacctInvoice["CUSTMESSAGE.MESSAGE"],
+            note: intacctInvoice.CUSTMESSAGE.MESSAGE,
             number: intacctInvoice.RECORDNO,
             payment_term: {
                 term_type: intacctInvoice.TERMNAME,
             },
             shipping_info: {
                 address: {
-                    city: intacctInvoice["SHIPTO.MAILADDRESS.CITY"],
-                    country_code: intacctInvoice["SHIPTO.MAILADDRESS.COUNTRYCODE"],
-                    line1: intacctInvoice["SHIPTO.MAILADDRESS.ADDRESS1"],
-                    line2: intacctInvoice["SHIPTO.MAILADDRESS.ADDRESS2"],
-                    phone: intacctInvoice["SHIPTO.PHONE1"],
-                    postal_code: intacctInvoice["SHIPTO.MAILADDRESS.ZIP"],
-                    state: intacctInvoice["SHIPTO.MAILADDRESS.STATE"],
+                    city: intacctInvoice.SHIPTO.MAILADDRESS.CITY,
+                    country_code: intacctInvoice.SHIPTO.MAILADDRESS.COUNTRYCODE,
+                    line1: intacctInvoice.SHIPTO.MAILADDRESS.ADDRESS1,
+                    line2: intacctInvoice.SHIPTO.MAILADDRESS.ADDRESS2,
+                    postal_code: intacctInvoice.SHIPTO.MAILADDRESS.ZIP,
+                    state: intacctInvoice.SHIPTO.MAILADDRESS.STATE,
                 },
-                business_name: intacctInvoice["SHIPTO.CONTACTNAME"],
-                first_name: intacctInvoice["SHIPTO.FIRSTNAME"],
-                last_name: intacctInvoice["SHIPTO.LASTNAME"],
+                business_name: intacctInvoice.SHIPTO.CONTACTNAME,
+                first_name: intacctInvoice.SHIPTO.FIRSTNAME,
+                last_name: intacctInvoice.SHIPTO.LASTNAME,
             },
             tax_inclusive: true,
-            total_amount: {
-                currency: intacctInvoice.CURRENCY,
-                value: intacctInvoice.TRX_TOTALDUE,
-            },
         };
 
-        return paypalInvoice;
+        const validateResult = joi.validate(paypalInvoice, paypalSchemas.paypalInvoiceSchema);
+        if (validateResult.error) {
+            throw new Error(JSON.stringify(validateResult.error.details));
+        }
+
+        return validateResult.value;
     }
 
     private toPayPalLineItems(arrInvoiceItems: any) {
@@ -229,7 +261,7 @@ export class HapiPayPalIntacct {
         if (arrInvoiceItems.length > 0) {
             for (const item of arrInvoiceItems) {
                 const ritem: ppInvoice.InvoiceItem = {
-                    name: item.ITEMNAME ? "Item1" : item.ITEMNAME,
+                    name: item.ITEMNAME,
                     quantity: 1,
                     unit_price: {
                         currency: item.CURRENCY,
