@@ -124,14 +124,14 @@ export class HapiPayPalIntacct {
                     if (paypalInvoice.status === "DRAFT") {
                         const send = await this.server.inject({
                             method: "POST",
-                            url: `/paypal/invoice/${invoice.PAYPALINVOICEID}/send`,
+                            url: `/paypal/invoice/${paypalInvoice.id}/send`,
                         });
                         if (send.statusCode !== 200) {
                             throw new Error((send.result as any).message);
                         }
 
                         // Need to reget the invoice for the Payment URL
-                        paypalInvoice = await this.getPayPalInvoice(invoice.PAYPALINVOICEID);
+                        paypalInvoice = await this.getPayPalInvoice(paypalInvoice.id);
                     }
 
                 } catch (err) {

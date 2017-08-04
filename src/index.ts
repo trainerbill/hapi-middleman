@@ -1,4 +1,3 @@
-import * as dotenv from "dotenv";
 import * as glue from "glue";
 import * as hapi from "hapi";
 import * as mongoose from "mongoose";
