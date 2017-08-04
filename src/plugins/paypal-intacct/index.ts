@@ -37,25 +37,24 @@ export class HapiPayPalIntacct {
         const invoice: any = {};
         switch (webhook.event_type) {
             case "INVOICING.INVOICE.PAID":
-                invoice.PAYPALINVOICESTATUS = webhook.resource.status;
+                invoice.PAYPALINVOICESTATUS = webhook.resource.invoice.status;
+                // Update Invoice
+                try {
+                    const update = await this.server.inject({
+                        method: "PUT",
+                        payload: invoice,
+                        url: `/intacct/invoice/${webhook.resource.invoice.number}`,
+                    });
+                    if (update.statusCode !== 200) {
+                        throw new Error((update.result as any).message);
+                    }
+                } catch (err) {
+                    // tslint:disable-next-line:max-line-length
+                    this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdateIntacct::${invoice.RECORDNO}::${err.message}`);
+                }
                 break;
 
             default:
-        }
-
-        // Update Invoice
-        try {
-            const update = await this.server.inject({
-                method: "PUT",
-                payload: invoice,
-                url: `/intacct/invoice/${webhook.resource.number}`,
-            });
-            if (update.statusCode !== 200) {
-                throw new Error((update.result as any).message);
-            }
-        } catch (err) {
-            // tslint:disable-next-line:max-line-length
-            this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdateIntacct::${invoice.RECORDNO}::${err.message}`);
         }
     }
 
