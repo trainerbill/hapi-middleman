@@ -29,7 +29,7 @@ export class HapiPayPalIntacct {
     // tslint:disable-next-line:max-line-length
     public register: hapi.PluginFunction<any> = (server: hapi.Server, options: any, next: hapi.ContinuationFunction) => {
         this.server = server;
-        return Promise.all([ this.initJobs(options.jobs) ]).then(() => next);
+        return Promise.all([ this.initJobs(options.jobs) ]).then(() => next());
     }
 
     public async webhookHandler(webhook: ppWebhook.webhookEvent.WebhookEvent) {

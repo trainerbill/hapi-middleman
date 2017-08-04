@@ -1,3 +1,4 @@
+import * as boom from "boom";
 import * as catbox from "catbox-mongodb";
 import * as Good from "good";
 import { PluginRegistrationObject, Server } from "hapi";
@@ -38,8 +39,15 @@ const hapiPayPalOptions: IHapiPayPalOptions = {
                 id: "paypal_webhooks_listen",
             },
             handler: async (request, reply, error, response) => {
-                await hapiPayPalIntacct.webhookHandler(request.payload);
-                reply("GOT IT!");
+                if (error) {
+                    return reply(boom.notFound(error.message));
+                }
+                try {
+                    await hapiPayPalIntacct.webhookHandler(request.payload);
+                    return reply("GOT IT!");
+                } catch (err) {
+                    return reply(boom.badRequest(err.message));
+                }
             },
         },
     ],
@@ -157,5 +165,5 @@ export const manifest: any = {
                 register: hapiPayPalIntacct.register,
             },
         },
-    ]
+    ],
 };
