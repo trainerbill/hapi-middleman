@@ -37,8 +37,9 @@ const hapiPayPalOptions: IHapiPayPalOptions = {
             config: {
                 id: "paypal_webhooks_listen",
             },
-            handler: (request, reply, error, response) => {
-                hapiPayPalIntacct.webhookHandler(request.payload);
+            handler: async (request, reply, error, response) => {
+                await hapiPayPalIntacct.webhookHandler(request.payload);
+                reply("GOT IT!");
             },
         },
     ],
@@ -156,15 +157,5 @@ export const manifest: any = {
                 register: hapiPayPalIntacct.register,
             },
         },
-    ],
-    server: {
-        cache: [
-            {
-                engine: catbox,
-                host: "127.0.0.1",
-                name: "mongoCache",
-                partition: "cache",
-            },
-        ],
-    },
+    ]
 };

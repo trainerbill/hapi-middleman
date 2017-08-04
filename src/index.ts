@@ -20,7 +20,7 @@ async function startDatabase() {
 
 async function start() {
     try {
-        await startDatabase();
+        // await startDatabase();
         server = await glue.compose(manifest);
 
         await server.start();
