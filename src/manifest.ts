@@ -21,6 +21,16 @@ const hapiPayPalOptions: IHapiPayPalOptions = {
         },
         {
             config: {
+                id: "paypal_invoice_cancel",
+            },
+        },
+        {
+            config: {
+                id: "paypal_invoice_remind",
+            },
+        },
+        {
+            config: {
                 id: "paypal_invoice_create",
             },
         },
@@ -55,6 +65,7 @@ const hapiPayPalOptions: IHapiPayPalOptions = {
         client_id: process.env.PAYPAL_CLIENT_ID,
         client_secret: process.env.PAYPAL_CLIENT_SECRET,
         mode: "sandbox",
+        retries: 10,
     },
     webhook: {
         event_types: [
@@ -132,6 +143,11 @@ export const manifest: any = {
                                 id: "intacct_invoice_update",
                             },
                         },
+                        {
+                            config: {
+                                id: "intacct_invoice_inspect",
+                            },
+                        },
                     ],
                     sdk: {
                         auth: {
@@ -157,10 +173,28 @@ export const manifest: any = {
                 options: {
                     jobs: [
                         {
-                            latertext: "every hour",
+                            latertext: "every 1 minute",
                             name: "syncInvoices",
                         },
                     ],
+                    merchant: {
+                        address: {
+                            city: process.env.PAYPAL_MERCHANT_ADDRESS_CITY,
+                            country_code: process.env.PAYPAL_MERCHANT_COUNTRY_CODE,
+                            line1: process.env.PAYPAL_MERCHANT_ADDRESS_LINE1,
+                            postal_code: process.env.PAYPAL_MERCHANT_COUNTRY_POSTAL_CODE,
+                            state: process.env.PAYPAL_MERCHANT_COUNTRY_STATE,
+                        },
+                        business_name: process.env.PAYPAL_MERCHANT_BUSINESS_NAME,
+                        email: process.env.PAYPAL_MERCHANT_EMAIL,
+                        first_name: process.env.PAYPAL_MERCHANT_FIRST_NAME,
+                        last_name: process.env.PAYPAL_MERCHANT_LAST_NAME,
+                        phone: {
+                            country_code: process.env.PAYPAL_MERCHANT_PHONE_COUNTRY_CODE,
+                            national_number: process.env.PAYPAL_MERCHANT_PHONE_NUMBER,
+                        },
+                    },
+                    reminderDays: process.env.INVOICE_REMINDER_DAYS * 1,
                 },
                 register: hapiPayPalIntacct.register,
             },
