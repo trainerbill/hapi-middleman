@@ -188,7 +188,6 @@ export class HapiPayPalIntacct {
             intacctUpdate.PAYPALINVOICEID = paypalInvoice.id;
             intacctUpdate.PAYPALINVOICESTATUS = paypalInvoice.status;
 
-
             if (paypalInvoice.status === "DRAFT") {
                 const send = await this.server.inject({
                     method: "POST",
