@@ -7,7 +7,7 @@ export const hapiPayPalIntacctPlugin: PluginRegistrationObject<any> = {
     options: {
         jobs: [
             {
-                latertext: "every 1 minute",
+                latertext: "every 1 hour",
                 name: "syncInvoices",
             },
         ],
