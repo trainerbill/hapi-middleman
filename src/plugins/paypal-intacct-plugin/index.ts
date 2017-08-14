@@ -5,6 +5,48 @@ import * as joi from "joi";
 import * as later from "later";
 import { invoice as ppInvoice, notification as ppWebhook, QueryParameters } from "paypal-rest-sdk";
 
+export const intacctPaymentItemSchema = joi.object().keys({
+    amount: joi.string().required(),
+    invoicekey: joi.string().required(),
+});
+
+export const intacctPaymentSchema = joi.object().keys({
+    arpaymentitem: joi.array().items(intacctPaymentItemSchema).optional(),
+    authcode: joi.string().optional(),
+    bankaccountid: joi.string().optional(),
+    basecurr: joi.string().optional(),
+    batchkey: joi.string().optional(),
+    cctype: joi.string().optional(),
+    currency: joi.string().optional(),
+    customerid: joi.string().required(),
+    datereceived: joi.object().keys({
+        day: joi.string().required(),
+        month: joi.string().required(),
+        year: joi.string().required(),
+    }).optional(),
+    exchrate: joi.string().optional(),
+    exchratedate: joi.object().keys({
+        day: joi.string().required(),
+        month: joi.string().required(),
+        year: joi.string().required(),
+    }).optional(),
+    exchratetype: joi.string().optional(),
+    onlineachpayment: joi.object().optional(),
+    overpaydeptid: joi.string().optional(),
+    overpaylocid: joi.string().optional(),
+    paymentamount: joi.string().required(),
+    paymentmethod: joi.string().valid([
+        "Printed Check",
+        "Cash",
+        "EFT",
+        "Credit Card",
+        "Online Charge Card",
+        "Online ACH Debit"]).optional(),
+    refid: joi.string().optional(),
+    translatedamount: joi.string().optional(),
+    undepfundsacct: joi.string().optional(),
+});
+
 export interface IJob {
     name: string;
     latertext: string;
@@ -32,6 +74,12 @@ export interface IHapiPayPalIntacctOptions {
     jobs?: IJob[];
     reminderDays?: number;
     merchant: IMerchant;
+    paymentaccounts?: {
+        default: string;
+        currencies?: {
+            [key: string]: string;
+        }
+    };
 }
 
 export class HapiPayPalIntacct {
@@ -68,6 +116,10 @@ export class HapiPayPalIntacct {
         const optionsSchema = joi.object().keys({
             jobs: joi.array().items(jobSchema).default([]),
             merchant: paypalSchemas.paypalInvoiceBillingInfoSchema.required(),
+            paymentaccounts: joi.object().keys({
+                currencies: joi.object().optional(),
+                default: joi.string().required(),
+            }).optional(),
             reminderDays: joi.number().default(30),
         });
 
@@ -82,11 +134,35 @@ export class HapiPayPalIntacct {
     }
 
     public async webhookHandler(webhook: ppWebhook.webhookEvent.WebhookEvent) {
-        // TODO: ARPAMENT ETC
         const invoice: any = {};
         switch (webhook.event_type) {
             case "INVOICING.INVOICE.PAID":
                 invoice.PAYPALINVOICESTATUS = webhook.resource.invoice.status;
+                if (this.options.paymentaccounts) {
+                    // Create a payment
+                    try {
+                        const account = this.options.paymentaccounts.currencies ?
+                            this.options.paymentaccounts.currencies[webhook.resource.invoice.total_amount.currency] :
+                            this.options.paymentaccounts.default;
+
+                        if (!account) {
+                            // tslint:disable-next-line:max-line-length
+                            throw new Error(`${webhook.resource.invoice.total_amount.currency} currency payment account not configured`);
+                        }
+
+                        const create = await this.createIntacctPayment({
+                            bankaccountid: account,
+                            customerid: webhook.resource.invoice.billing_info[0].additional_info,
+                            paymentamount: webhook.resource.invoice.total_amount.value,
+                        });
+                        if (create.statusCode !== 200) {
+                            throw new Error((create.result as any).message);
+                        }
+                    } catch (err) {
+                        // tslint:disable-next-line:max-line-length
+                        this.server.log("error", `hapi-paypal-intacct::webhookHandler::CreatePaymnet::INVOICING.INVOICE.PAID::${webhook.resource.invoice.id}::${err.message}`);
+                    }
+                }
                 // Update Invoice
                 try {
                     const update = await this.server.inject({
@@ -99,7 +175,7 @@ export class HapiPayPalIntacct {
                     }
                 } catch (err) {
                     // tslint:disable-next-line:max-line-length
-                    this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdateIntacct::${invoice.RECORDNO}::${err.message}`);
+                    this.server.log("error", `hapi-paypal-intacct::webhookHandler::UpdateInvoice::INVOICING.INVOICE.PAID::${webhook.resource.invoice.id}::${err.message}`);
                 }
                 break;
 
@@ -414,5 +490,24 @@ export class HapiPayPalIntacct {
             }
         }
         return arrPPInvItems;
+    }
+
+    private async createIntacctPayment(payload: any) {
+
+        const validate = joi.validate(payload, intacctPaymentSchema);
+
+        if (validate.error) {
+            throw new Error(validate.error.message);
+        }
+
+        const create = await this.server.inject({
+            method: "POST",
+            payload,
+            url: `/intacct/invoice/payment`,
+        });
+        if (create.statusCode !== 200) {
+            throw new Error((create.result as any).message);
+        }
+        return (create.result as any);
     }
 }
