@@ -120,7 +120,7 @@ export class HapiPayPalIntacct {
                 currencies: joi.object().optional(),
                 default: joi.string().required(),
             }).optional(),
-            reminderDays: joi.number().default(30),
+            reminderDays: joi.string().default("30"),
         });
 
         const validate = joi.validate(options, optionsSchema);

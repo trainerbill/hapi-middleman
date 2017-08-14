@@ -28,7 +28,7 @@ export const hapiPayPalIntacctPlugin: PluginRegistrationObject<any> = {
                 national_number: process.env.PAYPAL_MERCHANT_PHONE_NUMBER,
             },
         },
-        reminderDays: process.env.INVOICE_REMINDER_DAYS * 1,
+        reminderDays: process.env.INVOICE_REMINDER_DAYS ? process.env.INVOICE_REMINDER_DAYS * 1 : undefined,
     },
     register: hapiPayPalIntacct.register,
 };
