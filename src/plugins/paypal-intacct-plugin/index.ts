@@ -150,14 +150,18 @@ export class HapiPayPalIntacct {
                             throw new Error(`${webhook.resource.invoice.total_amount.currency} currency payment account not configured`);
                         }
 
+                        // For some reason the object has to be exacly in this order...
+                        // tslint:disable:object-literal-sort-keys
                         const create = await this.createIntacctPayment({
-                            bankaccountid: account,
                             customerid: webhook.resource.invoice.billing_info[0].additional_info,
                             paymentamount: webhook.resource.invoice.total_amount.value,
+                            bankaccountid: account,
+                            arpaymentitem: [{
+                                invoicekey: webhook.resource.invoice.number,
+                                amount: webhook.resource.invoice.total_amount.value,
+                            }],
                         });
-                        if (create.statusCode !== 200) {
-                            throw new Error((create.result as any).message);
-                        }
+                        // tslint:enable:object-literal-sort-keys
                     } catch (err) {
                         // tslint:disable-next-line:max-line-length
                         this.server.log("error", `hapi-paypal-intacct::webhookHandler::CreatePaymnet::INVOICING.INVOICE.PAID::${webhook.resource.invoice.id}::${err.message}`);

@@ -21,7 +21,6 @@ async function start() {
     try {
         // await startDatabase();
         server = await glue.compose(manifest);
-
         await server.start();
         server.log("info", `Database running at: ${process.env.MONGOOSE_URI}`);
         server.log("info", `Server running at: ${server.info.uri}`);

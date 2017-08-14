@@ -25,6 +25,11 @@ export const hapiIntacctOptions: IHapiIntacctOptions = {
                 id: "intacct_invoice_inspect",
             },
         },
+        {
+            config: {
+                id: "intacct_invoice_create_payment",
+            },
+        },
     ],
     sdk: {
         auth: {
