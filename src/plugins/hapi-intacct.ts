@@ -27,7 +27,7 @@ export const hapiIntacctOptions: IHapiIntacctOptions = {
         },
         {
             config: {
-                id: "intacct_invoice_create_payment",
+                id: "intacct_payment_create",
             },
         },
     ],

@@ -1,7 +1,7 @@
 import * as boom from "boom";
 import { PluginRegistrationObject } from "hapi";
 import { HapiPayPal, IHapiPayPalOptions } from "hapi-paypal";
-import { hapiPayPalIntacct } from "./paypal-intacct";
+import { hapiPayPalIntacctInvoicing } from "./invoicing";
 
 export const hapiPayPal = new HapiPayPal();
 
@@ -51,7 +51,7 @@ export const hapiPayPalOptions: IHapiPayPalOptions = {
                     return reply(boom.notFound(error.message));
                 }
                 try {
-                    await hapiPayPalIntacct.webhookHandler(request.payload);
+                    await hapiPayPalIntacctInvoicing.webhookHandler(request.payload);
                     return reply("GOT IT!");
                 } catch (err) {
                     return reply(boom.badRequest(err.message));
