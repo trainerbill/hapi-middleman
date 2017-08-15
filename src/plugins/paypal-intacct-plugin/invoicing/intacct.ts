@@ -16,6 +16,7 @@ export class HapiIntacctInvoicing {
             "intacct_invoice_update",
             "intacct_invoice_inspect",
             "intacct_payment_create",
+            "intacct_checkingaccount_query",
         ];
 
         this.validateRoutes();
@@ -61,6 +62,17 @@ export class HapiIntacctInvoicing {
             throw new Error((create.result as any).message);
         }
         return (create.result as any);
+    }
+
+    public async listAccounts() {
+        const list = await this.server.inject({
+            method: "GET",
+            url: `/intacct/checkingaccount`,
+        });
+        if (list.statusCode !== 200) {
+            throw new Error((list.result as any).message);
+        }
+        return (list.result as any);
     }
 
     private validateRoutes() {

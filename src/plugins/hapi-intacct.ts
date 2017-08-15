@@ -30,6 +30,11 @@ export const hapiIntacctOptions: IHapiIntacctOptions = {
                 id: "intacct_payment_create",
             },
         },
+        {
+            config: {
+                id: "intacct_checkingaccount_query",
+            },
+        },
     ],
     sdk: {
         auth: {

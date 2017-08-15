@@ -144,11 +144,36 @@ export class HapiPayPalIntacctInvoicing {
 
     private async init() {
         this.server.log("info", `hapi-paypal-intacct::initInvoicing::${JSON.stringify(this.options)}.`);
-        await Promise.all([ this.validateKeys(), this.sync()]);
+        await Promise.all([ this.validateKeys(), this.validateAccounts()]);
+        await this.sync();
         const timer = later.parse.text(this.options.latertext);
         later.setInterval(this.sync.bind(this), timer);
         // tslint:disable-next-line:max-line-length
         this.server.log("info", `hapi-paypal-intacct::initInvoicing::syncInvoice cron set for ${this.options.latertext}.`);
+    }
+
+    private async validateAccounts() {
+        const configAccounts: string[] = [];
+        if (this.options.paymentaccounts) {
+            if (this.options.paymentaccounts.default) {
+                configAccounts.push(this.options.paymentaccounts.default);
+            }
+            if (this.options.paymentaccounts.currencies) {
+                const keys = Object.keys(this.options.paymentaccounts.currencies);
+                keys.forEach((key) => configAccounts.push(this.options.paymentaccounts.currencies[key]));
+            }
+        } else {
+            return;
+        }
+        const accounts = await this.intacct.listAccounts();
+        configAccounts.forEach((account) => {
+            const filteredAccounts = accounts.filter((faccount: any) => {
+                return faccount.BANKACCOUNTID === account;
+            });
+            if (filteredAccounts.length < 1) {
+                throw new Error(`Intacct Payment Account ${account} configured but does not exist in Intacct`);
+            }
+        });
     }
 
     private async validateKeys() {
