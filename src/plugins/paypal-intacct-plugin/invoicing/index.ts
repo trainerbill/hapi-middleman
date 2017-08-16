@@ -28,6 +28,7 @@ export interface IInvoicingMerchant {
 }
 
 export interface IInvoicingOptions {
+    autogenerate: boolean;
     latertext: string;
     paymentaccounts?: {
         default: string;
@@ -57,6 +58,7 @@ export class HapiPayPalIntacctInvoicing {
             "PAYPALERROR",
             "PAYPALINVOICEURL",
             "PAYPALINVOICESTATUS",
+            "PAYPALINVOICING",
         ];
     }
 
@@ -71,6 +73,7 @@ export class HapiPayPalIntacctInvoicing {
 
         // Validate Options
         const optionsSchema = joi.object().keys({
+            autogenerate: joi.boolean().required(),
             latertext: joi.string().default("every 1 hour"),
             merchant: paypalSchemas.paypalInvoiceBillingInfoSchema.required(),
             paymentaccounts: joi.object().keys({
@@ -85,14 +88,16 @@ export class HapiPayPalIntacctInvoicing {
         }
         this.options = validate.value;
 
-        return this.init();
+        return this.init().then(() => next());
     }
 
     public async webhookHandler(webhook: ppWebhook.webhookEvent.WebhookEvent) {
-        const invoice: any = {};
         switch (webhook.event_type) {
             case "INVOICING.INVOICE.PAID":
-                invoice.PAYPALINVOICESTATUS = webhook.resource.invoice.status;
+                // const invoice = await this.intacct.get(webhook.resource.invoice.number);
+                const invoice: any = {
+                    PAYPALERROR: "",
+                };
                 if (this.options.paymentaccounts) {
                     // Create a payment
                     try {
@@ -120,9 +125,16 @@ export class HapiPayPalIntacctInvoicing {
                     } catch (err) {
                         // tslint:disable-next-line:max-line-length
                         this.server.log("error", `hapi-paypal-intacct::webhookHandler::CreatePaymnet::INVOICING.INVOICE.PAID::${webhook.resource.invoice.id}::${err.message}`);
+                        const error = JSON.parse(err.message);
+                        if (error.length === 1 && error[0].errorno !== "BL03000130") {
+                            invoice.PAYPALERROR = err.message;
+                        }
                     }
                 }
-                // Update Invoice
+
+                invoice.PAYPALINVOICESTATUS = webhook.resource.invoice.status;
+
+                // Update Intacct Invoice
                 try {
                     const update = await this.server.inject({
                         method: "PUT",
@@ -136,6 +148,11 @@ export class HapiPayPalIntacctInvoicing {
                     // tslint:disable-next-line:max-line-length
                     this.server.log("error", `hapi-paypal-intacct::webhookHandler::UpdateInvoice::INVOICING.INVOICE.PAID::${webhook.resource.invoice.id}::${err.message}`);
                 }
+
+                if (invoice.PAYPALERROR) {
+                    throw new Error(invoice.PAYPALERROR);
+                }
+
                 break;
 
             default:
@@ -193,7 +210,12 @@ export class HapiPayPalIntacctInvoicing {
 
     private async sync() {
          // tslint:disable-next-line:max-line-length
-        const query = process.env.INTACCT_INVOICE_QUERY || `RAWSTATE = 'A' AND ( PAYPALINVOICESTATUS IN (NULL,'DRAFT') OR PAYPALINVOICEID IS NULL ) AND WHENCREATED > '8/1/2017'`;
+        let query = process.env.INTACCT_INVOICE_QUERY || `RAWSTATE = 'A' AND ( PAYPALINVOICESTATUS IN (NULL,'DRAFT') OR PAYPALINVOICEID IS NULL ) AND WHENCREATED > '8/1/2017'`;
+        if (this.options.autogenerate) {
+            // TODO add the query when Intacct tells me how;
+            // query += ` AND PAYPALINVOICING`;
+            query = query;
+        }
         const promises: Array<Promise<any>> = [];
         const res = await this.server.inject({
             method: "GET",

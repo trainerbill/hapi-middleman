@@ -4,6 +4,7 @@ import { HapiPayPalIntacctInvoicing, IInvoicingOptions } from "./paypal-intacct-
 export const hapiPayPalIntacctInvoicing = new HapiPayPalIntacctInvoicing();
 
 export const hapiInvoicingOptions: IInvoicingOptions = {
+    autogenerate: process.env.INVOICING_AUTO ? true : false,
     latertext: "every 1 hour",
     merchant: {
         address: {
