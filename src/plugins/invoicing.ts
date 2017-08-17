@@ -5,7 +5,14 @@ export const hapiPayPalIntacctInvoicing = new HapiPayPalIntacctInvoicing();
 
 export const hapiInvoicingOptions: IInvoicingOptions = {
     autogenerate: process.env.INVOICING_AUTO ? true : false,
-    latertext: "every 1 hour",
+    cron: {
+        create: {
+            latertext: "every 1 hour",
+        },
+        refund: {
+            latertext: "every 1 day",
+        },
+    },
     merchant: {
         address: {
             city: process.env.PAYPAL_MERCHANT_ADDRESS_CITY,

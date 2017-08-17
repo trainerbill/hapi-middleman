@@ -9,6 +9,11 @@ export const hapiPayPalOptions: IHapiPayPalOptions = {
     routes: [
         {
             config: {
+                id: "paypal_sale_refund",
+            },
+        },
+        {
+            config: {
                 id: "paypal_invoice_search",
             },
         },
@@ -62,6 +67,9 @@ export const hapiPayPalOptions: IHapiPayPalOptions = {
     sdk: {
         client_id: process.env.PAYPAL_CLIENT_ID,
         client_secret: process.env.PAYPAL_CLIENT_SECRET,
+        headers: {
+            "PayPal-Partner-Attribution-Id": "Hapi-Middleman",
+        },
         mode: process.env.PAYPAL_MODE,
     },
     webhook: {

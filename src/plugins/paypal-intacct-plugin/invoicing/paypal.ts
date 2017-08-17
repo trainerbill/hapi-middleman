@@ -18,6 +18,7 @@ export class HapiPayPalInvoicing {
             "paypal_invoice_create",
             "paypal_invoice_send",
             "paypal_invoice_get",
+            "paypal_sale_refund",
         ];
 
         this.validateRoutes();
@@ -52,7 +53,7 @@ export class HapiPayPalInvoicing {
         if (cancel.statusCode !== 200) {
             throw new Error((cancel.result as any).message);
         }
-        return cancel;
+        return cancel.result;
     }
 
     public async remind(id: string) {
@@ -64,7 +65,19 @@ export class HapiPayPalInvoicing {
         if (remind.statusCode !== 200) {
             throw new Error((remind.result as any).message);
         }
-        return remind;
+        return remind.result;
+    }
+
+    public async refund(id: string) {
+        const refund = await this.server.inject({
+            method: "POST",
+            payload: {},
+            url: `/paypal/sale/${id}/refund`,
+        });
+        if (refund.statusCode !== 200) {
+            throw new Error((refund.result as any).message);
+        }
+        return refund.result;
     }
 
     public async create(payload: any) {
@@ -80,7 +93,7 @@ export class HapiPayPalInvoicing {
         if (create.statusCode !== 200) {
             throw new Error((create.result as any).message);
         }
-        return create;
+        return create.result;
     }
 
     private validateRoutes() {
