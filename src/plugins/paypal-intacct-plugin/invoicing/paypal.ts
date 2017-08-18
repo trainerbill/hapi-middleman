@@ -26,6 +26,7 @@ export class HapiPayPalInvoicing {
 
     public async search(payload: any = {}) {
         const search = await this.server.inject({
+            allowInternals: true,
             method: "POST",
             payload,
             url: "/paypal/invoice/search",
@@ -35,6 +36,7 @@ export class HapiPayPalInvoicing {
 
     public async get(id: string) {
         const get = await this.server.inject({
+            allowInternals: true,
             method: "GET",
             url: `/paypal/invoice/${id}`,
         });
@@ -46,6 +48,7 @@ export class HapiPayPalInvoicing {
 
     public async cancel(id: string) {
         const cancel = await this.server.inject({
+            allowInternals: true,
             method: "POST",
             payload: {},
             url: `/paypal/invoice/${id}/cancel`,
@@ -58,6 +61,7 @@ export class HapiPayPalInvoicing {
 
     public async remind(id: string) {
         const remind = await this.server.inject({
+            allowInternals: true,
             method: "POST",
             payload: {},
             url: `/paypal/invoice/${id}/remind`,
@@ -68,8 +72,22 @@ export class HapiPayPalInvoicing {
         return remind.result;
     }
 
+    public async send(id: string, payload = {}) {
+        const send = await this.server.inject({
+            allowInternals: true,
+            method: "POST",
+            payload,
+            url: `/paypal/invoice/${id}/send`,
+        });
+        if (send.statusCode !== 200) {
+            throw new Error((send.result as any).message);
+        }
+        return send.result;
+    }
+
     public async refund(id: string) {
         const refund = await this.server.inject({
+            allowInternals: true,
             method: "POST",
             payload: {},
             url: `/paypal/sale/${id}/refund`,
@@ -86,6 +104,7 @@ export class HapiPayPalInvoicing {
             throw new Error(validate.error.message);
         }
         const create = await this.server.inject({
+            allowInternals: true,
             method: "POST",
             payload: validate.value,
             url: "/paypal/invoice",
@@ -98,11 +117,16 @@ export class HapiPayPalInvoicing {
 
     private validateRoutes() {
         this.requiredRoutes.forEach((route) => {
-            const lroute = this.server.lookup(route);
-            if (!lroute) {
-                throw new Error(`Intacct ${route} not found.  You must enable this route in the manifest.`);
+            let valid = false;
+            this.server.connections.forEach((connection) => {
+                if (!valid && connection.lookup(route)) {
+                    valid = true;
+                }
+            });
+
+            if (!valid) {
+                throw new Error(`PayPal ${route} not found.  You must enable this route in the manifest.`);
             }
         });
     }
-
 }

@@ -141,12 +141,12 @@ export class HapiPayPalIntacctInvoicing {
                             customerid: webhook.resource.invoice.billing_info[0].additional_info,
                             paymentamount: webhook.resource.invoice.total_amount.value,
                             bankaccountid: account,
+                            // tslint:disable-next-line:max-line-length
+                            refid: webhook.resource.invoice.payments[webhook.resource.invoice.payments.length - 1].transaction_id,
                             arpaymentitem: [{
                                 invoicekey: webhook.resource.invoice.number,
                                 amount: webhook.resource.invoice.total_amount.value,
                             }],
-                            // tslint:disable-next-line:max-line-length
-                            refid: webhook.resource.invoice.payments[webhook.resource.invoice.payments.length - 1].transaction_id,
                         });
                         // tslint:enable:object-literal-sort-keys
                     } catch (err) {
@@ -222,15 +222,9 @@ export class HapiPayPalIntacctInvoicing {
     }
 
     private async validateKeys() {
-        const inspect = await this.server.inject({
-            method: "OPTIONS",
-            url: `/intacct/invoice`,
-        });
-        if (inspect.statusCode !== 200) {
-            throw new Error((inspect.result as any).message);
-        }
+        const inspect = await this.intacct.inspect();
         this.intacctInvoiceKeys.forEach((key) => {
-            if ((inspect.result as any).indexOf(key) === -1) {
+            if ((inspect).indexOf(key) === -1) {
                 throw new Error(`${key} not defined.  Add the key to the Intacct Invoice object.`);
             }
         });
@@ -240,13 +234,9 @@ export class HapiPayPalIntacctInvoicing {
         try {
             const promises: Array<Promise<any>> = [];
             const query = `RAWSTATE = 'V' AND PAYPALINVOICESTATUS = 'PAID'`;
-            const res = await this.server.inject({
-                method: "GET",
-                url: `/intacct/invoice?query=${encodeURIComponent(query)}&fields=RECORDNO,PAYPALINVOICEID`,
-            });
-            const invoices: any[] = res.result as any[];
+            const invoices = await this.intacct.query(query);
             try {
-                invoices.forEach((invoice) => promises.push(this.refundInvoiceSync(invoice)));
+                invoices.forEach((invoice: any) => promises.push(this.refundInvoiceSync(invoice)));
             } catch (err) {
                 this.server.log("error", `hapi-paypal-intacct::refundInvoicesSync::${err.message}`);
             }
@@ -265,8 +255,8 @@ export class HapiPayPalIntacctInvoicing {
             } catch (err) {
                 throw err;
             }
-            const promises: Array<Promise<any>> = [];
             try {
+                const promises: Array<Promise<any>> = [];
                 paypalInvoice.payments.forEach((payment) => promises.push(this.paypal.refund(payment.transaction_id)));
                 await Promise.all(promises);
             } catch (err) {
@@ -290,17 +280,13 @@ export class HapiPayPalIntacctInvoicing {
          // tslint:disable-next-line:max-line-length
         let query = process.env.INTACCT_INVOICE_QUERY || `RAWSTATE = 'A' AND ( PAYPALINVOICESTATUS IN (NULL,'DRAFT') OR PAYPALINVOICEID IS NULL ) AND WHENCREATED > '8/1/2017'`;
         if (this.options.autogenerate) {
-            // TODO: add the query when Intacct tells me how;
+            // TODO: add the query when Intacct tells me how to query based on a checkbox value
             // query += ` AND PAYPALINVOICING`;
             query = query; // TODO: REMOVE
         }
         const promises: Array<Promise<any>> = [];
-        const res = await this.server.inject({
-            method: "GET",
-            url: `/intacct/invoice?query=${encodeURIComponent(query)}&fields=RECORDNO`,
-        });
-        const invoices: any[] = res.result as any[];
-        invoices.forEach((invoice) => promises.push(this.syncIntacctToPayPal(invoice)));
+        const invoices = await this.intacct.query(query, ["RECORDNO"]);
+        invoices.forEach((invoice: any) => promises.push(this.syncIntacctToPayPal(invoice)));
 
         const paypalInvoices = await this.paypal.search({ status: ["SENT", "UNPAID"] });
         paypalInvoices.forEach((invoice) => promises.push(this.syncPayPalToIntacct(invoice)));
@@ -346,14 +332,7 @@ export class HapiPayPalIntacctInvoicing {
             intacctUpdate.PAYPALINVOICESTATUS = paypalInvoice.status;
 
             if (paypalInvoice.status === "DRAFT") {
-                const send = await this.server.inject({
-                    method: "POST",
-                    url: `/paypal/invoice/${paypalInvoice.id}/send`,
-                });
-                if (send.statusCode !== 200) {
-                    throw new Error((send.result as any).message);
-                }
-
+                await this.paypal.send(paypalInvoice.id);
                 // Need to reget the invoice for the Payment URL
                 paypalInvoice = await this.paypal.get(paypalInvoice.id);
             }

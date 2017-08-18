@@ -39,6 +39,7 @@ export const hapiInvoicingOptions: IInvoicingOptions = {
 export const hapiPayPalIntacctPlugin: PluginRegistrationObject<any> = {
     options: hapiInvoicingOptions,
     register: hapiPayPalIntacctInvoicing.register,
+    select: ["private"],
 };
 
 export const hapiPayPalIntacctGlueRegistration = {

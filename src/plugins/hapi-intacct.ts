@@ -8,31 +8,37 @@ export const hapiIntacctOptions: IHapiIntacctOptions = {
         {
             config: {
                 id: "intacct_invoice_query",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "intacct_invoice_read",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "intacct_invoice_update",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "intacct_invoice_inspect",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "intacct_payment_create",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "intacct_checkingaccount_query",
+                isInternal: true,
             },
         },
     ],
@@ -56,6 +62,7 @@ export const hapiIntacctOptions: IHapiIntacctOptions = {
 export const hapiIntacctPlugin: PluginRegistrationObject<any> = {
     options: hapiIntacctOptions,
     register: hapiIntacct.register,
+    select: ["private"],
 };
 
 export const hapiIntacctGlueRegistration = {

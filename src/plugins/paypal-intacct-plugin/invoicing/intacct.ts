@@ -22,8 +22,26 @@ export class HapiIntacctInvoicing {
         this.validateRoutes();
     }
 
+    public async query(query: string, fields?: string[]) {
+        let url = `/intacct/invoice?query=${encodeURIComponent(query)}`;
+        if (fields) {
+            url += `&fields=${fields.join(",")}`;
+        }
+        const res = await this.server.inject({
+            allowInternals: true,
+            method: "GET",
+            url,
+        });
+
+        if (res.statusCode !== 200) {
+            throw new Error((res.result as any).message);
+        }
+        return (res.result as any);
+    }
+
     public async get(id: string) {
         const get = await this.server.inject({
+            allowInternals: true,
             method: "GET",
             url: `/intacct/invoice/${id}`,
         });
@@ -35,6 +53,7 @@ export class HapiIntacctInvoicing {
 
     public async update(id: string, payload: any) {
         const update = await this.server.inject({
+            allowInternals: true,
             method: "PUT",
             payload,
             url: `/intacct/invoice/${id}`,
@@ -54,6 +73,7 @@ export class HapiIntacctInvoicing {
         }
 
         const create = await this.server.inject({
+            allowInternals: true,
             method: "POST",
             payload,
             url: `/intacct/payment`,
@@ -66,6 +86,7 @@ export class HapiIntacctInvoicing {
 
     public async listAccounts() {
         const list = await this.server.inject({
+            allowInternals: true,
             method: "GET",
             url: `/intacct/checkingaccount`,
         });
@@ -75,10 +96,28 @@ export class HapiIntacctInvoicing {
         return (list.result as any);
     }
 
+    public async inspect() {
+        const inspect = await this.server.inject({
+            allowInternals: true,
+            method: "OPTIONS",
+            url: `/intacct/invoice`,
+        });
+        if (inspect.statusCode !== 200) {
+            throw new Error((inspect.result as any).message);
+        }
+        return (inspect.result as any);
+    }
+
     private validateRoutes() {
         this.requiredRoutes.forEach((route) => {
-            const lroute = this.server.lookup(route);
-            if (!lroute) {
+            let valid = false;
+            this.server.connections.forEach((connection) => {
+                if (!valid && connection.lookup(route)) {
+                    valid = true;
+                }
+            });
+
+            if (!valid) {
                 throw new Error(`Intacct ${route} not found.  You must enable this route in the manifest.`);
             }
         });

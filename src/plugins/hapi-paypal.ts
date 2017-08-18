@@ -10,57 +10,43 @@ export const hapiPayPalOptions: IHapiPayPalOptions = {
         {
             config: {
                 id: "paypal_sale_refund",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "paypal_invoice_search",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "paypal_invoice_cancel",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "paypal_invoice_remind",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "paypal_invoice_create",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "paypal_invoice_send",
+                isInternal: true,
             },
         },
         {
             config: {
                 id: "paypal_invoice_get",
-            },
-        },
-        {
-            config: {
-                id: "paypal_webhooks_test",
-            },
-        },
-        {
-            config: {
-                id: "paypal_webhooks_listen",
-            },
-            handler: async (request, reply, error, response) => {
-                if (error) {
-                    return reply(boom.notFound(error.message));
-                }
-                try {
-                    await hapiPayPalIntacctInvoicing.webhookHandler(request.payload);
-                    return reply("GOT IT!");
-                } catch (err) {
-                    return reply(boom.badRequest(err.message));
-                }
+                isInternal: true,
             },
         },
     ],
@@ -72,22 +58,12 @@ export const hapiPayPalOptions: IHapiPayPalOptions = {
         },
         mode: process.env.PAYPAL_MODE,
     },
-    webhook: {
-        event_types: [
-            {
-                name: "INVOICING.INVOICE.PAID",
-            },
-            {
-                name: "INVOICING.INVOICE.CANCELLED",
-            },
-        ],
-        url: process.env.PAYPAL_WEBHOOK_HOSTNAME,
-    },
 };
 
 export const hapiPayPalPlugin: PluginRegistrationObject<any> = {
     options: hapiPayPalOptions,
     register: hapiPayPal.register,
+    select: ["private"],
 };
 
 export const hapiPayPalGlueRegistration = {
