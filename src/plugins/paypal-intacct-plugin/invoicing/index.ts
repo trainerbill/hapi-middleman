@@ -180,38 +180,45 @@ export class HapiPayPalIntacctInvoicing {
     }
 
     private async init() {
-        this.server.log("info", `hapi-paypal-intacct::initInvoicing::${JSON.stringify(this.options)}.`);
-        await Promise.all([ this.validateKeys(), this.validateAccounts()]);
-        await this.createInvoiceSync();
-        const timer = later.parse.text(this.options.cron.create.latertext);
-        later.setInterval(this.createInvoiceSync.bind(this), timer);
-        // tslint:disable-next-line:max-line-length
-        this.server.log("info", `hapi-paypal-intacct::initInvoicing::create cron set for ${this.options.cron.create.latertext}.`);
-
-        if (this.options.cron.refund) {
-            await this.refundInvoicesSync();
-            const refundtimer = later.parse.text(this.options.cron.refund.latertext);
-            later.setInterval(this.refundInvoicesSync.bind(this), refundtimer);
+        const promises: Array<Promise<any>> = [];
+        try {
+            this.server.log("info", `hapi-paypal-intacct::initInvoicing::${JSON.stringify(this.options)}.`);
+            await Promise.all([ this.validateKeys(), this.validateAccounts()]);
+            promises.push(this.createInvoiceSync());
+            const timer = later.parse.text(this.options.cron.create.latertext);
+            later.setInterval(this.createInvoiceSync.bind(this), timer);
             // tslint:disable-next-line:max-line-length
-            this.server.log("info", `hapi-paypal-intacct::initInvoicing::refund cron set for ${this.options.cron.refund.latertext}.`);
+            this.server.log("info", `hapi-paypal-intacct::initInvoicing::create cron set for ${this.options.cron.create.latertext}.`);
+
+            if (this.options.cron.refund) {
+                promises.push(this.refundInvoicesSync());
+                const refundtimer = later.parse.text(this.options.cron.refund.latertext);
+                later.setInterval(this.refundInvoicesSync.bind(this), refundtimer);
+                // tslint:disable-next-line:max-line-length
+                this.server.log("info", `hapi-paypal-intacct::initInvoicing::refund cron set for ${this.options.cron.refund.latertext}.`);
+            }
+            await Promise.all(promises);
+        } catch (err) {
+            this.server.log("error", `hapi-paypal-intacct::init::${err.message}`);
+            throw err;
         }
     }
 
     private async validateAccounts() {
         const configAccounts: string[] = [];
-        if (this.options.paymentaccounts) {
-            if (this.options.paymentaccounts.default) {
-                configAccounts.push(this.options.paymentaccounts.default);
-            }
-            if (this.options.paymentaccounts.currencies) {
-                const keys = Object.keys(this.options.paymentaccounts.currencies);
-                keys.forEach((key) => configAccounts.push(this.options.paymentaccounts.currencies[key]));
-            }
-        } else {
+        if (!this.options.paymentaccounts) {
             return;
         }
-        const accounts = await this.intacct.listAccounts();
-        configAccounts.forEach((account) => {
+        if (this.options.paymentaccounts.default) {
+            configAccounts.push(this.options.paymentaccounts.default);
+        }
+        if (this.options.paymentaccounts.currencies) {
+            const keys = Object.keys(this.options.paymentaccounts.currencies);
+            keys.forEach((key) => configAccounts.push(this.options.paymentaccounts.currencies[key]));
+        }
+        try {
+            const accounts = await this.intacct.listAccounts();
+            configAccounts.forEach((account) => {
             const filteredAccounts = accounts.filter((faccount: any) => {
                 return faccount.BANKACCOUNTID === account;
             });
@@ -219,15 +226,24 @@ export class HapiPayPalIntacctInvoicing {
                 throw new Error(`Intacct Payment Account ${account} configured but does not exist in Intacct`);
             }
         });
+        } catch (err) {
+            this.server.log("error", `hapi-paypal-intacct::validateAccounts::${err.message}`);
+            throw err;
+        }
     }
 
     private async validateKeys() {
-        const inspect = await this.intacct.inspect();
-        this.intacctInvoiceKeys.forEach((key) => {
-            if ((inspect).indexOf(key) === -1) {
-                throw new Error(`${key} not defined.  Add the key to the Intacct Invoice object.`);
-            }
-        });
+        try {
+            const inspect = await this.intacct.inspect();
+            this.intacctInvoiceKeys.forEach((key) => {
+                if ((inspect).indexOf(key) === -1) {
+                    throw new Error(`${key} not defined.  Add the key to the Intacct Invoice object.`);
+                }
+            });
+        } catch (err) {
+            this.server.log("error", `hapi-paypal-intacct::validateKeys::${err.message}`);
+            throw err;
+        }
     }
 
     private async refundInvoicesSync() {
@@ -277,7 +293,8 @@ export class HapiPayPalIntacctInvoicing {
     }
 
     private async createInvoiceSync() {
-         // tslint:disable-next-line:max-line-length
+        // TODO: SHore up this query
+        // tslint:disable-next-line:max-line-length
         let query = process.env.INTACCT_INVOICE_QUERY || `RAWSTATE = 'A' AND ( PAYPALINVOICESTATUS IN (NULL,'DRAFT') OR PAYPALINVOICEID IS NULL ) AND WHENCREATED > '8/1/2017'`;
         if (this.options.autogenerate) {
             // TODO: add the query when Intacct tells me how to query based on a checkbox value
@@ -285,17 +302,16 @@ export class HapiPayPalIntacctInvoicing {
             query = query; // TODO: REMOVE
         }
         const promises: Array<Promise<any>> = [];
-        const invoices = await this.intacct.query(query, ["RECORDNO"]);
-        invoices.forEach((invoice: any) => promises.push(this.syncIntacctToPayPal(invoice)));
-
-        const paypalInvoices = await this.paypal.search({ status: ["SENT", "UNPAID"] });
-        paypalInvoices.forEach((invoice) => promises.push(this.syncPayPalToIntacct(invoice)));
-
-        return Promise
-                .all(promises)
-                .then(() => this.server.log("info", "hapi-paypal-intacct::syncInvoices::Success"))
-                // tslint:disable-next-line:max-line-length
-                .catch((err: Error) => this.server.log("error", `hapi-paypal-intacct::syncInvoices::Error::${err.message}`));
+        try {
+            // tslint:disable-next-line:max-line-length
+            const invoices = await Promise.all([this.intacct.query(query, ["RECORDNO"]), this.paypal.search({ status: ["SENT", "UNPAID"] })]);
+            invoices[0].forEach((invoice: any) => promises.push(this.syncIntacctToPayPal(invoice)));
+            invoices[1].forEach((invoice) => promises.push(this.syncPayPalToIntacct(invoice)));
+            await Promise.all(promises);
+            this.server.log("info", "hapi-paypal-intacct::syncInvoices::Success");
+        } catch (err) {
+            this.server.log("error", `hapi-paypal-intacct::syncInvoices::Error::${err.message}`);
+        }
     }
 
     private async syncIntacctToPayPal(invoice: any) {
@@ -347,7 +363,7 @@ export class HapiPayPalIntacctInvoicing {
         }
 
         try {
-            return this.intacct.update(intacctInvoice.RECORDNO, intacctUpdate);
+            await this.intacct.update(intacctInvoice.RECORDNO, intacctUpdate);
         } catch (err) {
             // tslint:disable-next-line:max-line-length
             this.server.log("error", `hapi-paypal-intacct::syncInvoices::UpdateIntacct::${intacctInvoice.RECORDNO}::${err.message}`);
