@@ -293,13 +293,10 @@ export class HapiPayPalIntacctInvoicing {
     }
 
     private async createInvoiceSync() {
-        // TODO: SHore up this query
         // tslint:disable-next-line:max-line-length
         let query = process.env.INTACCT_INVOICE_QUERY || `RAWSTATE = 'A' AND ( PAYPALINVOICESTATUS IN (NULL,'DRAFT') OR PAYPALINVOICEID IS NULL ) AND WHENCREATED > '8/1/2017'`;
-        if (this.options.autogenerate) {
-            // TODO: add the query when Intacct tells me how to query based on a checkbox value
-            // query += ` AND PAYPALINVOICING`;
-            query = query; // TODO: REMOVE
+        if (this.options.autogenerate && !process.env.INTACCT_INVOICE_QUERY) {
+            query += ` AND PAYPALINVOICING = 'T'`;
         }
         const promises: Array<Promise<any>> = [];
         try {
@@ -337,7 +334,10 @@ export class HapiPayPalIntacctInvoicing {
                 this.server.log("warn", error);
             }
 
-            if (!intacctInvoice.PAYPALINVOICEID) {
+            if (intacctInvoice.PAYPALINVOICEID && paypalInvoice) {
+                // Update a PayPal Invoice
+                paypalInvoice = await this.paypal.update(paypalInvoice.id, this.toPaypalInvoice(intacctInvoice));
+            } else if (!intacctInvoice.PAYPALINVOICEID) {
                 // Create a PayPal Invoice
                 const create = await this.paypal.create(this.toPaypalInvoice(intacctInvoice));
                 paypalInvoice = (create as ppInvoice.InvoiceResponse);

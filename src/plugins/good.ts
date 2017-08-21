@@ -6,6 +6,7 @@ export const goodOptions = {
         console: [{
             args: [{
                 log: "*",
+                request: "*",
                 response: "*",
             }],
             module: "good-squeeze",

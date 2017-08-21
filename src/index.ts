@@ -9,11 +9,13 @@ export interface IWozuServer extends hapi.Server {
 
 async function start() {
     try {
-        // await startDatabase();
-        server = await glue.compose(manifest);
+        const server = await glue.compose(manifest);
         await server.start();
-        server.log("info", `Servers running at: ${server.connections}`);
-        server.log("info", JSON.stringify(server.wozu(), null, 2));
+        server.log(
+            "info",
+            // tslint:disable-next-line:max-line-length
+            `Servers running at:  ${server.connections.map((connection: any) => connection.info.uri).join(", ")}`,
+        );
     } catch (err) {
         throw err;
     }
@@ -25,4 +27,4 @@ try {
     throw err;
 }
 
-export let server: IWozuServer;
+// export let server: IWozuServer;

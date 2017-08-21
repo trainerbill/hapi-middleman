@@ -14,4 +14,10 @@ export const manifest: any = {
         },
     ],
     registrations: GlueRegistrations,
+    server: {
+        debug: {
+            log: process.env.HAPI_DEBUG ? "*" : "info",
+            request: process.env.HAPI_DEBUG ? "*" : "info",
+        },
+    },
 };

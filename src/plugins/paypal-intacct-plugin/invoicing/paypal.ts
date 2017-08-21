@@ -18,6 +18,7 @@ export class HapiPayPalInvoicing {
             "paypal_invoice_create",
             "paypal_invoice_send",
             "paypal_invoice_get",
+            "paypal_invoice_update",
             "paypal_sale_refund",
         ];
 
@@ -113,6 +114,23 @@ export class HapiPayPalInvoicing {
             throw new Error((create.result as any).message);
         }
         return create.result;
+    }
+
+    public async update(id: string, payload: any) {
+        const validate = joi.validate(payload, paypalSchemas.paypalInvoiceSchema);
+        if (validate.error) {
+            throw new Error(validate.error.message);
+        }
+        const update = await this.server.inject({
+            allowInternals: true,
+            method: "PUT",
+            payload: validate.value,
+            url: `/paypal/invoice/${id}`,
+        });
+        if (update.statusCode !== 200) {
+            throw new Error((update.result as any).message);
+        }
+        return update.result;
     }
 
     private validateRoutes() {

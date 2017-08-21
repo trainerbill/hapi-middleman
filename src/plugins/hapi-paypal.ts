@@ -49,6 +49,12 @@ export const hapiPayPalOptions: IHapiPayPalOptions = {
                 isInternal: true,
             },
         },
+        {
+            config: {
+                id: "paypal_invoice_update",
+                isInternal: true,
+            },
+        },
     ],
     sdk: {
         client_id: process.env.PAYPAL_CLIENT_ID,
