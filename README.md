@@ -6,4 +6,4 @@
 Hapi Middleman is a middleman system, developed using HapiJS and designed to be quickly deployed via Docker containers to cloud solutions, that integrates two independent systems via their API's.  The application can be used with any HapiJS plugin and is merely a collection of plugins working to synchronize data between two systems.
 
 # Documentation
-Visit the [documentation folder](docs/) for the most up to date documentation.
+Visit the [documentation folder](docs/index) for the most up to date documentation.
