@@ -275,6 +275,9 @@ export class HapiPayPalIntacctInvoicing {
                 const promises: Array<Promise<any>> = [];
                 paypalInvoice.payments.forEach((payment) => promises.push(this.paypal.refund(payment.transaction_id)));
                 await Promise.all(promises);
+                await this.intacct.update(invoice.RECORDNO, {
+                    PAYPALINVOICESTATUS: paypalInvoice.status,
+                });
             } catch (err) {
                 if (err.message === "Request was refused.This transaction has already been fully refunded") {
                     try {
