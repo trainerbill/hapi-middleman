@@ -1,22 +1,21 @@
 import * as glue from "glue";
 import * as hapi from "hapi";
-import * as mongoose from "mongoose";
 import { manifest } from "./manifest";
-
-export interface IWozuServer extends hapi.Server {
-    wozu(): [{}];
-}
 
 async function start() {
     try {
         const server = await glue.compose(manifest);
-        await server.start();
-        server.log(
-            "info",
-            // tslint:disable-next-line:max-line-length
-            `Servers running at:  ${server.connections.map((connection: any) => connection.info.uri).join(", ")}`,
-        );
-    } catch (err) {
+        const servers = await server.start();
+        server.table().map((connection: any) => {
+            const routes = connection
+                            .table
+                            .map((route: any) => JSON.stringify({ method: route.method, path: route.path }, null, 2));
+            server.log("info", `
+Server: ${connection.info.uri}
+Labels ${connection.labels.join(",")}
+Routes: ${routes}`);
+        });
+    }  catch (err) {
         throw err;
     }
 }
