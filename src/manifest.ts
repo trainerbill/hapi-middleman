@@ -10,7 +10,7 @@ export const manifest: any = {
         {
             host: process.env.IP || "0.0.0.0",
             labels: ["public"],
-            port: process.env.PUBLIC_PORT || 3000,
+            port: process.env.PUBLIC_PORT || process.env.PORT || 3000,
         },
     ],
     registrations: GlueRegistrations,
