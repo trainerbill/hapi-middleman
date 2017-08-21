@@ -298,7 +298,7 @@ export class HapiPayPalIntacctInvoicing {
     private async createInvoiceSync() {
         // tslint:disable-next-line:max-line-length
         let query = process.env.INTACCT_INVOICE_QUERY || `RAWSTATE = 'A' AND ( PAYPALINVOICESTATUS IN (NULL,'DRAFT') OR PAYPALINVOICEID IS NULL ) AND WHENCREATED > '8/1/2017'`;
-        if (this.options.autogenerate && !process.env.INTACCT_INVOICE_QUERY) {
+        if (!this.options.autogenerate && !process.env.INTACCT_INVOICE_QUERY) {
             query += ` AND PAYPALINVOICING = 'T'`;
         }
         const promises: Array<Promise<any>> = [];
